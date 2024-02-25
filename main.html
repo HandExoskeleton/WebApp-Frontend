@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Video Capture Example</title>
+<link href="js_example_style.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+<h2>Video Capture Example</h2>
+<p>
+    Click <b>Start/Stop</b> button to start or stop the camera capture.<br>
+    The <b>videoInput</b> is a &lt;video&gt; element used as OpenCV.js input.
+    The <b>canvasOutput</b> is a &lt;canvas&gt; element used as OpenCv.js output.<br>
+    The code of &lt;textarea&gt; will be executed when video is started.
+    You can modify the code to investigate more.
+</p>
+<div>
+<div class="control"><button id="startAndStop" disabled>Start</button></div>
+<textarea class="code" rows="29" cols="100" id="codeEditor" spellcheck="false">
+</textarea>
+</div>
+<p class="err" id="errorMessage"></p>
+<div>
+    <table cellpadding="0" cellspacing="0" width="0" border="0">
+    <tr>
+        <td>
+            <video id="videoInput" width=320 height=240></video>
+        </td>
+        <td>
+            <canvas id="canvasOutput" width=320 height=240></canvas>
+        </td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td>
+            <div class="caption">videoInput</div>
+        </td>
+        <td>
+            <div class="caption">canvasOutput</div>
+        </td>
+        <td></td>
+        <td></td>
+    </tr>
+    </table>
+</div>
+<script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+<script src="https://webrtc.github.io/adapter/adapter-5.0.4.js" type="text/javascript"></script>
+<script src="utils.js" type="text/javascript"></script>
+<script src="utils_algo.js" type="text/javascript"></script>
+<script id="codeSnippet" type="text/code-snippet">
+    
+    
+    
+    function processVideo() {
+        let video = document.getElementById('videoInput');
+        let src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
+        let dst = new cv.Mat(video.height, video.width, cv.CV_8UC3);
+        let mask = new cv.Mat(video.height, video.width, cv.CV_8UC4);
+        let cap = new cv.VideoCapture(video);
+        let low = new cv.Mat(dst.rows, dst.cols, dst.type(), [0, 0, 0, 0]);
+        let high = new cv.Mat(dst.rows, dst.cols, dst.type(), [180, 255, 50, 180]);
+        const FPS = 30;
+        try {
+            if (!streaming) {
+                // clean and stop.
+                src.delete();
+                dst.delete();
+                temp.delete();
+                low.delete();
+                high.delete();
+                return;
+            }
+            let begin = Date.now();
+            // start processing.
+            cap.read(src);
+            cv.cvtColor(src, dst, cv.COLOR_BGR2HSV);
+            cv.inRange(dst, low, high, mask);
+    
+            for (let i = 0; i < mask.rows; i++) {
+                for (let j = 0; j < mask.cols; j++) {
+                    if (mask.ucharPtr(i, j)[0] === 255) {
+                        src.ucharPtr(i, j)[0] = 255
+                        src.ucharPtr(i, j)[1] = 219
+                        src.ucharPtr(i, j)[2] = 172
+                        src.ucharPtr(i, j)[3] = 255
+                    }
+                }
+            }
+    
+            cv.imshow('canvasOutput', src);
+            // schedule the next one.
+            let delay = 1000/FPS - (Date.now() - begin);
+            setTimeout(processVideo, delay);
+        } catch (err) {
+            utils.printError(err);
+        }
+    };
+    
+    // schedule the first one.
+    //setTimeout(processVideo, 0);
+
+// schedule the first one.
+//setTimeout(processVideo, 0);
+</script>
+<script type="module">
+let utils = new Utils('errorMessage');
+
+utils.loadCode('codeSnippet', 'codeEditor');
+
+let streaming = false;
+let startAndStop = document.getElementById('startAndStop');
+
+const video = document.getElementById("videoInput");
+const canvasElement = document.getElementById("canvasOutput");
+const canvasCtx = canvasElement.getContext("2d");
+
+startAndStop.addEventListener('click', () => {
+    if (!streaming) {
+        utils.clearError();
+        utils.startCamera('qvga', onVideoStarted, 'videoInput');
+    } else {
+        utils.stopCamera();
+        onVideoStopped();
+    }
+});
+
+function onVideoStarted() {
+    streaming = true;
+    startAndStop.innerText = 'Stop';
+    video.width = video.videoWidth;
+    video.height = video.videoHeight;
+    utils.executeCode('codeEditor');
+    predictWebcam()
+    //canvasElement.addEventListener("loadeddata", predictWebcam);
+}
+
+function onVideoStopped() {
+    streaming = false;
+    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    startAndStop.innerText = 'Start';
+}
+
+utils.loadOpenCv(() => {
+    startAndStop.removeAttribute('disabled');
+});
+
+function processVideo() {
+    let video = document.getElementById('videoInput');
+    let src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
+    let dst = new cv.Mat(video.height, video.width, cv.CV_8UC3);
+    let mask = new cv.Mat(video.height, video.width, cv.CV_8UC4);
+    let cap = new cv.VideoCapture(video);
+    let low = new cv.Mat(dst.rows, dst.cols, dst.type(), [0, 0, 0, 0]);
+    let high = new cv.Mat(dst.rows, dst.cols, dst.type(), [180, 255, 50, 180]);
+    const FPS = 30;
+    try {
+        if (!streaming) {
+            // clean and stop.
+            src.delete();
+            dst.delete();
+            mask.delete();
+            low.delete();
+            high.delete();
+            return;
+        }
+        let begin = Date.now();
+        // start processing.
+        cap.read(src);
+        cv.cvtColor(src, dst, cv.COLOR_BGR2HSV);
+        cv.inRange(dst, low, high, mask);
+
+        for (let i = 0; i < mask.rows; i++) {
+            for (let j = 0; j < mask.cols; j++) {
+                if (mask.ucharPtr(i, j)[0] === 255) {
+                    src.ucharPtr(i, j)[0] = 255
+                    src.ucharPtr(i, j)[1] = 219
+                    src.ucharPtr(i, j)[2] = 172
+                    src.ucharPtr(i, j)[3] = 255
+                }
+            }
+        }
+
+        cv.imshow('canvasOutput', src);
+        // schedule the next one.
+        let delay = 1000/FPS - (Date.now() - begin);
+        setTimeout(processVideo, delay);
+    } catch (err) {
+        utils.printError(err);
+    }
+}
+import { HandLandmarker, FilesetResolver, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
+
+let handLandmarker = undefined;
+let runningMode = "IMAGE";
+let enableWebcamButton;
+let webcamRunning = false;
+const videoHeight = "360px";
+const videoWidth = "480px";
+
+
+// Before we can use HandLandmarker class we must wait for it to finish
+// loading. Machine Learning models can be large and take a moment to
+// get everything needed to run.
+const createHandLandmarker = async () => {
+    const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm");
+    handLandmarker = await HandLandmarker.createFromOptions(vision, {
+        baseOptions: {
+            modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
+            delegate: "GPU"
+        },
+        runningMode: runningMode,
+        numHands: 2
+    });
+};
+createHandLandmarker();
+
+let lastVideoTime = -1;
+let results = undefined;
+let past_results = undefined;
+let counter = 0;
+//console.log(video);
+async function predictWebcam() {
+    canvasElement.style.width = video.videoWidth;
+    canvasElement.style.height = video.videoHeight;
+    canvasElement.width = video.videoWidth;
+    canvasElement.height = video.videoHeight;
+    // Now let's start detecting the stream.
+    if (runningMode === "IMAGE") {
+        runningMode = "VIDEO";
+        await handLandmarker.setOptions({ runningMode: "VIDEO" });
+    }
+    if (counter < 0.05){
+      counter += video.currentTime - lastVideoTime;
+    }
+    if (counter >= 0.05){
+        past_results = results;
+        counter = 0; 
+    }
+    let startTimeMs = performance.now();
+    if (lastVideoTime !== video.currentTime) {
+        lastVideoTime = video.currentTime;
+        processVideo();
+        results = handLandmarker.detectForVideo(canvasElement, startTimeMs);
+    }
+    console.log(results);
+    canvasCtx.save();
+    //canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    if (results.landmarks) {
+        for (const landmarks of results.landmarks) {
+            drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {
+                color: "#00FF00",
+                lineWidth: 1
+            });
+            drawLandmarks(canvasCtx, landmarks, { color: "#FF0000", lineWidth: 1, radius: 2 });
+            console.log("line drawn");
+        }
+    }
+    canvasCtx.restore();
+    if (streaming) {
+        window.requestAnimationFrame(predictWebcam);
+    }
+}
+</script> 
+</body>
+</html>
