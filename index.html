@@ -3,7 +3,6 @@
 <head>
 <meta charset="utf-8">
 <title>Video Capture Example</title>
-<link href="js_example_style.css" rel="stylesheet" type="text/css" />
 </head>
 <body>
 <h2>Video Capture Example</h2>
@@ -49,61 +48,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
 <script src="https://webrtc.github.io/adapter/adapter-5.0.4.js" type="text/javascript"></script>
 <script src="utils.js" type="text/javascript"></script>
-<script src="utils_algo.js" type="text/javascript"></script>
 <script id="codeSnippet" type="text/code-snippet">
     
-    
-    
-    function processVideo() {
-        let video = document.getElementById('videoInput');
-        let src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
-        let dst = new cv.Mat(video.height, video.width, cv.CV_8UC3);
-        let mask = new cv.Mat(video.height, video.width, cv.CV_8UC4);
-        let cap = new cv.VideoCapture(video);
-        let low = new cv.Mat(dst.rows, dst.cols, dst.type(), [0, 0, 0, 0]);
-        let high = new cv.Mat(dst.rows, dst.cols, dst.type(), [180, 255, 50, 180]);
-        const FPS = 30;
-        try {
-            if (!streaming) {
-                // clean and stop.
-                src.delete();
-                dst.delete();
-                temp.delete();
-                low.delete();
-                high.delete();
-                return;
-            }
-            let begin = Date.now();
-            // start processing.
-            cap.read(src);
-            cv.cvtColor(src, dst, cv.COLOR_BGR2HSV);
-            cv.inRange(dst, low, high, mask);
-    
-            for (let i = 0; i < mask.rows; i++) {
-                for (let j = 0; j < mask.cols; j++) {
-                    if (mask.ucharPtr(i, j)[0] === 255) {
-                        src.ucharPtr(i, j)[0] = 255
-                        src.ucharPtr(i, j)[1] = 219
-                        src.ucharPtr(i, j)[2] = 172
-                        src.ucharPtr(i, j)[3] = 255
-                    }
-                }
-            }
-    
-            cv.imshow('canvasOutput', src);
-            // schedule the next one.
-            let delay = 1000/FPS - (Date.now() - begin);
-            setTimeout(processVideo, delay);
-        } catch (err) {
-            utils.printError(err);
-        }
-    };
-    
-    // schedule the first one.
-    //setTimeout(processVideo, 0);
-
-// schedule the first one.
-//setTimeout(processVideo, 0);
 </script>
 <script type="module">
 let utils = new Utils('errorMessage');
@@ -147,7 +93,8 @@ utils.loadOpenCv(() => {
     startAndStop.removeAttribute('disabled');
 });
 
-function processVideo() {
+function processVideo(canvasElement) {
+    canvasElement.removeAttribute("style");
     let video = document.getElementById('videoInput');
     let src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
     let dst = new cv.Mat(video.height, video.width, cv.CV_8UC3);
@@ -155,41 +102,26 @@ function processVideo() {
     let cap = new cv.VideoCapture(video);
     let low = new cv.Mat(dst.rows, dst.cols, dst.type(), [0, 0, 0, 0]);
     let high = new cv.Mat(dst.rows, dst.cols, dst.type(), [180, 255, 50, 180]);
-    const FPS = 30;
-    try {
-        if (!streaming) {
-            // clean and stop.
-            src.delete();
-            dst.delete();
-            mask.delete();
-            low.delete();
-            high.delete();
-            return;
-        }
-        let begin = Date.now();
-        // start processing.
-        cap.read(src);
-        cv.cvtColor(src, dst, cv.COLOR_BGR2HSV);
-        cv.inRange(dst, low, high, mask);
-
-        for (let i = 0; i < mask.rows; i++) {
-            for (let j = 0; j < mask.cols; j++) {
-                if (mask.ucharPtr(i, j)[0] === 255) {
-                    src.ucharPtr(i, j)[0] = 255
-                    src.ucharPtr(i, j)[1] = 219
-                    src.ucharPtr(i, j)[2] = 172
-                    src.ucharPtr(i, j)[3] = 255
-                }
+    cap.read(src);
+    cv.cvtColor(src, dst, cv.COLOR_BGR2HSV);
+    cv.inRange(dst, low, high, mask);
+    for (let i = 0; i < mask.rows; i++) {
+        for (let j = 0; j < mask.cols; j++) {
+            if (mask.ucharPtr(i, j)[0] === 255) {
+                src.ucharPtr(i, j)[0] = 255
+                src.ucharPtr(i, j)[1] = 219
+                src.ucharPtr(i, j)[2] = 172
+                src.ucharPtr(i, j)[3] = 255
             }
         }
-
-        cv.imshow('canvasOutput', src);
-        // schedule the next one.
-        let delay = 1000/FPS - (Date.now() - begin);
-        setTimeout(processVideo, delay);
-    } catch (err) {
-        utils.printError(err);
     }
+    console.log(canvasElement)
+    cv.imshow(canvasElement, src);
+    src.delete();
+    dst.delete();
+    mask.delete();
+    low.delete();
+    high.delete();
 }
 import { HandLandmarker, FilesetResolver, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
 
@@ -242,12 +174,11 @@ async function predictWebcam() {
     let startTimeMs = performance.now();
     if (lastVideoTime !== video.currentTime) {
         lastVideoTime = video.currentTime;
-        processVideo();
+        processVideo(canvasElement);
         results = handLandmarker.detectForVideo(canvasElement, startTimeMs);
     }
-    console.log(results);
     canvasCtx.save();
-    //canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    
     if (results.landmarks) {
         for (const landmarks of results.landmarks) {
             drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {
@@ -255,7 +186,7 @@ async function predictWebcam() {
                 lineWidth: 1
             });
             drawLandmarks(canvasCtx, landmarks, { color: "#FF0000", lineWidth: 1, radius: 2 });
-            console.log("line drawn");
+
         }
     }
     canvasCtx.restore();
