@@ -85,7 +85,7 @@ function onVideoStarted() {
 
 function onVideoStopped() {
     streaming = false;
-    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    //canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
     startAndStop.innerText = 'Start';
 }
 
@@ -101,21 +101,20 @@ function processVideo(canvasElement) {
     let mask = new cv.Mat(video.height, video.width, cv.CV_8UC4);
     let cap = new cv.VideoCapture(video);
     let low = new cv.Mat(dst.rows, dst.cols, dst.type(), [0, 0, 0, 0]);
-    let high = new cv.Mat(dst.rows, dst.cols, dst.type(), [180, 255, 50, 180]);
+    let high = new cv.Mat(dst.rows, dst.cols, dst.type(), [180, 255, 75, 255]);
     cap.read(src);
     cv.cvtColor(src, dst, cv.COLOR_BGR2HSV);
     cv.inRange(dst, low, high, mask);
     for (let i = 0; i < mask.rows; i++) {
         for (let j = 0; j < mask.cols; j++) {
             if (mask.ucharPtr(i, j)[0] === 255) {
-                src.ucharPtr(i, j)[0] = 255
-                src.ucharPtr(i, j)[1] = 219
-                src.ucharPtr(i, j)[2] = 172
-                src.ucharPtr(i, j)[3] = 255
+                src.ucharPtr(i, j)[0] += 114;
+                src.ucharPtr(i, j)[1] += 98;
+                src.ucharPtr(i, j)[2] += 55;
+                //src.ucharPtr(i, j)[3] = 255;
             }
         }
     }
-    console.log(canvasElement)
     cv.imshow(canvasElement, src);
     src.delete();
     dst.delete();
@@ -140,11 +139,15 @@ const createHandLandmarker = async () => {
     const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm");
     handLandmarker = await HandLandmarker.createFromOptions(vision, {
         baseOptions: {
-            modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
+            modelAssetPath: `hand_landmarker.task`,
             delegate: "GPU"
         },
         runningMode: runningMode,
-        numHands: 2
+        numHands: 2,
+        // change confidence levels
+        minHandDetectionConfidence: 0.2,
+        minHandPresenceConfidence: 0.2,
+        minTrackingConfidence: 0.2
     });
 };
 createHandLandmarker();
@@ -176,6 +179,7 @@ async function predictWebcam() {
         lastVideoTime = video.currentTime;
         processVideo(canvasElement);
         results = handLandmarker.detectForVideo(canvasElement, startTimeMs);
+        console.log(results);
     }
     canvasCtx.save();
     
