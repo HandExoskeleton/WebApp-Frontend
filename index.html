@@ -93,7 +93,7 @@ utils.loadOpenCv(() => {
     startAndStop.removeAttribute('disabled');
 });
 
-import { HandLandmarker, FilesetResolver, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";4
+import { HandLandmarker, FilesetResolver, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
   
 function processVideo(canvasElement) {
     canvasElement.removeAttribute("style");
@@ -103,14 +103,23 @@ function processVideo(canvasElement) {
     let mask = new cv.Mat(video.height, video.width, cv.CV_8UC4);
     let cap = new cv.VideoCapture(video);
     let low = new cv.Mat(dst.rows, dst.cols, dst.type(), [0, 0, 0, 0]);
-    let high = new cv.Mat(dst.rows, dst.cols, dst.type(), [180, 255, 50, 180]);
+    let high = new cv.Mat(dst.rows, dst.cols, dst.type(), [180, 255, 75, 180]);
     // start processing.
     cap.read(src);
     cv.cvtColor(src, dst, cv.COLOR_BGR2HSV);
     cv.inRange(dst, low, high, mask);
 
     manipulateFrame(src, mask);
-
+    // for (let i = 0; i < mask.rows; i++) {
+    //     for (let j = 0; j < mask.cols; j++) {
+    //         if (mask.ucharPtr(i, j)[0] === 255) {
+    //             src.ucharPtr(i, j)[0] += 114;
+    //             src.ucharPtr(i, j)[1] += 98;
+    //             src.ucharPtr(i, j)[2] += 55;
+    //             //src.ucharPtr(i, j)[3] = 255;
+    //         }
+    //     }
+    // }
     cv.imshow('canvasOutput', src);
     src.delete();
     dst.delete();
@@ -138,37 +147,14 @@ function manipulateFrame(src, mask) {
 
         // Check the mask value at the current pixel position
         if (mask.ucharPtr(row, col)[0] === 255) {
-            // Modify pixel values in the source frame directly
-            srcData[idx] = 255;     // Blue channel
-            srcData[idx + 1] = 219; // Green channel
-            srcData[idx + 2] = 172; // Red channel
-            srcData[idx + 3] = 255; // Alpha channel
+            // Generate a linear transform to fit "black to beige"
+            srcData[idx] = srcData[idx]+114;     // Blue channel
+            srcData[idx + 1] = srcData[idx+1]+98; // Green channel
+            srcData[idx + 2] = srcData[idx+2]+55; // Red channel
+            //srcData[idx + 3] = 255; // Alpha channel
         }
     }
 }
-
-/* 
-function manipulateFrame(src, mask) {
-    // Access underlying data arrays for pixel manipulation.
-    let srcData = src.data;
-    let maskData = mask.data;
-
-    // Iterate over pixels and apply manipulation.
-    for (let i = 0; i < src.rows; i++) {
-        for (let j = 0; j < src.cols; j++, k += channels) {
-            let idx = k; // Index of current pixel.
-
-            // Apply manipulation based on mask value.
-            if (mask.ucharPtr(i, j)[0] === 255) {
-                srcData[idx] = 255;     // Blue
-                srcData[idx + 1] = 219; // Green
-                srcData[idx + 2] = 172; // Red
-                srcData[idx + 3] = 255; // Alpha (transparency)
-            }
-        }
-    }
-}
-*/
 
 let handLandmarker = undefined;
 let runningMode = "IMAGE";
