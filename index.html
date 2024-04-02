@@ -5,19 +5,14 @@
 <title>Video Capture Example</title>
 </head>
 <body>
-<h2>Video Capture Example</h2>
+<h2>Real TimeMediaPipe Skin Conversion</h2>
 <p>
     Click <b>Start/Stop</b> button to start or stop the camera capture.<br>
     The <b>videoInput</b> is a &lt;video&gt; element used as OpenCV.js input.
     The <b>canvasOutput</b> is a &lt;canvas&gt; element used as OpenCv.js output.<br>
-    The code of &lt;textarea&gt; will be executed when video is started.
-    You can modify the code to investigate more.
+    The skin conversion is performed on the canvas element implicitly, on which MediaPipe Hands is run. 
 </p>
-<div>
 <div class="control"><button id="startAndStop" disabled>Start</button></div>
-<textarea class="code" rows="29" cols="100" id="codeEditor" spellcheck="false">
-</textarea>
-</div>
 <p class="err" id="errorMessage"></p>
 <div>
     <table cellpadding="0" cellspacing="0" width="0" border="0">
@@ -54,8 +49,6 @@
 <script type="module">
 let utils = new Utils('errorMessage');
 
-utils.loadCode('codeSnippet', 'codeEditor');
-
 let streaming = false;
 let startAndStop = document.getElementById('startAndStop');
 
@@ -78,7 +71,6 @@ function onVideoStarted() {
     startAndStop.innerText = 'Stop';
     video.width = video.videoWidth;
     video.height = video.videoHeight;
-    utils.executeCode('codeEditor');
     predictWebcam()
     //canvasElement.addEventListener("loadeddata", predictWebcam);
 }
@@ -103,23 +95,13 @@ function processVideo(canvasElement) {
     let mask = new cv.Mat(video.height, video.width, cv.CV_8UC4);
     let cap = new cv.VideoCapture(video);
     let low = new cv.Mat(dst.rows, dst.cols, dst.type(), [0, 0, 0, 0]);
-    let high = new cv.Mat(dst.rows, dst.cols, dst.type(), [180, 255, 75, 180]);
+    let high = new cv.Mat(dst.rows, dst.cols, dst.type(), [180, 255, 75, 255]);
     // start processing.
     cap.read(src);
     cv.cvtColor(src, dst, cv.COLOR_BGR2HSV);
     cv.inRange(dst, low, high, mask);
 
     manipulateFrame(src, mask);
-    // for (let i = 0; i < mask.rows; i++) {
-    //     for (let j = 0; j < mask.cols; j++) {
-    //         if (mask.ucharPtr(i, j)[0] === 255) {
-    //             src.ucharPtr(i, j)[0] += 114;
-    //             src.ucharPtr(i, j)[1] += 98;
-    //             src.ucharPtr(i, j)[2] += 55;
-    //             //src.ucharPtr(i, j)[3] = 255;
-    //         }
-    //     }
-    // }
     cv.imshow('canvasOutput', src);
     src.delete();
     dst.delete();
@@ -148,9 +130,9 @@ function manipulateFrame(src, mask) {
         // Check the mask value at the current pixel position
         if (mask.ucharPtr(row, col)[0] === 255) {
             // Generate a linear transform to fit "black to beige"
-            srcData[idx] = srcData[idx]+114;     // Blue channel
-            srcData[idx + 1] = srcData[idx+1]+98; // Green channel
-            srcData[idx + 2] = srcData[idx+2]+55; // Red channel
+            srcData[idx] = srcData[idx]+140;     // Blue channel
+            srcData[idx + 1] = srcData[idx+1]+100; // Green channel
+            srcData[idx + 2] = srcData[idx+2]+80; // Red channel
             //srcData[idx + 3] = 255; // Alpha channel
         }
     }
@@ -177,9 +159,9 @@ const createHandLandmarker = async () => {
         runningMode: runningMode,
         numHands: 2,
         // change confidence levels
-        minHandDetectionConfidence: 0.2,
-        minHandPresenceConfidence: 0.2,
-        minTrackingConfidence: 0.2
+        minHandDetectionConfidence: 0.3,
+        minHandPresenceConfidence: 0.3,
+        minTrackingConfidence: 0.3
     });
 };
 createHandLandmarker();
@@ -211,7 +193,6 @@ async function predictWebcam() {
         lastVideoTime = video.currentTime;
         processVideo(canvasElement);
         results = handLandmarker.detectForVideo(canvasElement, startTimeMs);
-        console.log(results);
     }
     canvasCtx.save();
     
