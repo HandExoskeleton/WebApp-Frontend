@@ -86,7 +86,11 @@ utils.loadOpenCv(() => {
 });
 
 import { HandLandmarker, FilesetResolver, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
-  
+
+//import { Hands } from "https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands";
+//const hands = new Hands({ locateFile: (file) => {return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;} });
+
+
 function processVideo(canvasElement) {
     canvasElement.removeAttribute("style");
     let video = document.getElementById('videoInput');
@@ -145,7 +149,6 @@ let webcamRunning = false;
 const videoHeight = "360px";
 const videoWidth = "480px";
 
-
 // Before we can use HandLandmarker class we must wait for it to finish
 // loading. Machine Learning models can be large and take a moment to
 // get everything needed to run.
@@ -166,6 +169,19 @@ const createHandLandmarker = async () => {
 };
 createHandLandmarker();
 
+//MediaPipe draw unprocessed
+function drawHandLandmarks(results) {
+    if (!results.multiHandLandmarks) return;
+    canvasCtx.save();
+    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    canvasCtx.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+    for (const landmarks of results.multiHandLandmarks) {
+        drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, { color: "#00FF00", lineWidth: 1 });
+        drawLandmarks(canvasCtx, landmarks, { color: "#FF0000", lineWidth: 1 });
+    }
+    canvasCtx.restore();
+}
+
 let lastVideoTime = -1;
 let results = undefined;
 let past_results = undefined;
@@ -176,6 +192,12 @@ async function predictWebcam() {
     canvasElement.style.height = video.videoHeight;
     canvasElement.width = video.videoWidth;
     canvasElement.height = video.videoHeight;
+
+    //const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
+
+    //video.srcObject = mediaStream;
+
+
     // Now let's start detecting the stream.
     if (runningMode === "IMAGE") {
         runningMode = "VIDEO";
@@ -193,6 +215,13 @@ async function predictWebcam() {
         lastVideoTime = video.currentTime;
         processVideo(canvasElement);
         results = handLandmarker.detectForVideo(canvasElement, startTimeMs);
+
+        video.onloadedmetadata = () => {
+            video.play();
+            video.initialize().then(() => {
+                video.onResults(drawHandLandmarks);
+            });
+        };
     }
     canvasCtx.save();
     
@@ -203,7 +232,6 @@ async function predictWebcam() {
                 lineWidth: 1
             });
             drawLandmarks(canvasCtx, landmarks, { color: "#FF0000", lineWidth: 1, radius: 2 });
-
         }
     }
     canvasCtx.restore();
