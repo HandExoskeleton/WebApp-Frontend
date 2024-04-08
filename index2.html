@@ -5,11 +5,12 @@
 <title>Video Capture Example</title>
 </head>
 <body>
-<h2>Real Time MediaPipe Skin Conversion</h2>
+<h2>Real TimeMediaPipe Skin Conversion</h2>
 <p>
     Click <b>Start/Stop</b> button to start or stop the camera capture.<br>
+    The <b>videoInput</b> is a &lt;video&gt; element used as OpenCV.js input.
+    The <b>canvasOutput</b> is a &lt;canvas&gt; element used as OpenCv.js output.<br>
     The skin conversion is performed on the canvas element implicitly, on which MediaPipe Hands is run. 
-    The version of the MediaPipe Hand tracker used is taken from https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.2. 
 </p>
 <div class="control"><button id="startAndStop" disabled>Start</button></div>
 <p class="err" id="errorMessage"></p>
@@ -23,21 +24,18 @@
             <canvas id="canvasOutput" width=320 height=240></canvas>
         </td>
         <td>
-            <canvas id="unprocessedOutput" width=320 height=240></canvas>    
+            <canvas id = "unprocessedOutput" width=320 height=240></canvas>
         </td>
-        <td><canvas id="hiddenCanvas" width=0 height=0></canvas></td>
-        <td><canvas id="maskCanvas" width=0 height=0></canvas></td>
+        <td></td>
     </tr>
     <tr>
         <td>
-            <div class="caption">Original Video Feed</div>
+            <div class="caption">videoInput</div>
         </td>
         <td>
-            <div class="caption">Tracking with Skin Conversion</div>
+            <div class="caption">canvasOutput</div>
         </td>
-        <td>
-            <div class="caption">Tracking without Skin Conversion</div>
-        </td>
+        <td></td>
         <td></td>
     </tr>
     </table>
@@ -58,19 +56,12 @@ let startAndStop = document.getElementById('startAndStop');
 
 const video = document.getElementById("videoInput");
 const canvasElement = document.getElementById("canvasOutput");
-const hiddenCanvasElement = document.getElementById("hiddenCanvas");
 const canvasCtx = canvasElement.getContext("2d");
-const hiddenCanvasElementCtx = hiddenCanvasElement.getContext("2d");
 
 const canvasElementUnprocessed = document.getElementById("unprocessedOutput");
 const canvasCtxUnprocessed = canvasElementUnprocessed.getContext("2d");
 
-var fgbg
-var fgmask
-
 startAndStop.addEventListener('click', () => {
-    fgbg = new cv.BackgroundSubtractorMOG2(500,16, true);
-    fgmask = new cv.Mat(video.height, video.width, cv.CV_8UC1);
     if (!streaming) {
         utils.clearError();
         utils.startCamera('qvga', onVideoStarted, 'videoInput');
@@ -86,13 +77,13 @@ function onVideoStarted() {
     video.width = video.videoWidth;
     video.height = video.videoHeight;
     predictWebcam()
+    //predictWebcamUnprocessed()
     //canvasElement.addEventListener("loadeddata", predictWebcam);
 }
 
 function onVideoStopped() {
     streaming = false;
-    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-    canvasCtxUnprocessed.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    //canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
     startAndStop.innerText = 'Start';
 }
 
@@ -100,55 +91,43 @@ utils.loadOpenCv(() => {
     startAndStop.removeAttribute('disabled');
 });
 
-import { HandLandmarker, FilesetResolver, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
-  
+import { HandLandmarker, FilesetResolver, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0";
+
+//import { Hands } from "https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands";
+//const hands = new Hands({ locateFile: (file) => {return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;} });
+
+
 function processVideo(canvasElement, alt) {
+    canvasElement.removeAttribute("style");
     let video = document.getElementById('videoInput');
-    video.removeAttribute("style");
-    let canvasOut = document.getElementById('canvasOutput');
-    canvasOut.removeAttribute("style");
     let src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
     let dst = new cv.Mat(video.height, video.width, cv.CV_8UC3);
     let mask = new cv.Mat(video.height, video.width, cv.CV_8UC4);
-    let maskAnd = new cv.Mat(video.height, video.width, cv.CV_8UC4);
     let cap = new cv.VideoCapture(video);
     let low = new cv.Mat(dst.rows, dst.cols, dst.type(), [0, 0, 0, 0]);
     let high = new cv.Mat(dst.rows, dst.cols, dst.type(), [180, 255, 75, 255]);
-    let blurred = new cv.Mat(video.height, video.width, cv.CV_8UC4);
     // start processing.
     cap.read(src);
     cv.cvtColor(src, dst, cv.COLOR_BGR2HSV);
     cv.inRange(dst, low, high, mask);
-    cv.imshow('maskCanvas', maskAnd);    
     if (alt == 0){
         cv.imshow('unprocessedOutput', src);
     }
-    
+    manipulateFrame(src, mask);
     if (alt == 1){
         cv.imshow('canvasOutput', src);
     }
-
-    manipulateFrame(src, mask);
-    cv.imshow('hiddenCanvas', src)
-    // for background subtraction
-    // fgbg.apply(src, fgmask);
-    // fgmask.convertTo(maskAnd, cv.CV_8UC4);
-    // cv.bitwise_and(src, src, maskAnd, fgmask);
-    // cv.medianBlur(fgmask, blurred, 3);
-    cv.imshow('hiddenCanvas', src);
     src.delete();
     dst.delete();
     mask.delete();
     low.delete();
     high.delete();
-    maskAnd.delete();
-    blurred.delete();
 }
 
 function manipulateFrame(src, mask) {
     // Get the number of channels in the source frame
     let channels = src.channels();
-    
+
     // Get pointers to the underlying data arrays
     let srcData = src.data;
     let maskData = mask.data;
@@ -171,8 +150,6 @@ function manipulateFrame(src, mask) {
             //srcData[idx + 3] = 255; // Alpha channel
         }
     }
-    
-
 }
 
 let handLandmarker = undefined;
@@ -181,7 +158,6 @@ let enableWebcamButton;
 let webcamRunning = false;
 const videoHeight = "360px";
 const videoWidth = "480px";
-
 
 // Before we can use HandLandmarker class we must wait for it to finish
 // loading. Machine Learning models can be large and take a moment to
@@ -196,12 +172,25 @@ const createHandLandmarker = async () => {
         runningMode: runningMode,
         numHands: 2,
         // change confidence levels
-        minHandDetectionConfidence: 0.8,
-        minHandPresenceConfidence: 0.8,
-        minTrackingConfidence: 0.4
+        minHandDetectionConfidence: 0.5,
+        minHandPresenceConfidence: 0.5,
+        minTrackingConfidence: 0.5
     });
 };
 createHandLandmarker();
+
+//MediaPipe draw unprocessed
+function drawHandLandmarks(results, canvasCtx) {
+    if (!results.multiHandLandmarks) return;
+    canvasCtx.save();
+    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    canvasCtx.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+    for (const landmarks of results.multiHandLandmarks) {
+        drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, { color: "#00FF00", lineWidth: 1 });
+        drawLandmarks(canvasCtx, landmarks, { color: "#FF0000", lineWidth: 1 });
+    }
+    canvasCtx.restore();
+}
 
 let lastVideoTime = -1;
 let results = undefined;
@@ -227,8 +216,6 @@ async function predictWebcam() {
         lastVideoTime = video.currentTime;
         processVideo(canvasElement, 1);
         results = handLandmarker.detectForVideo(canvasElement, startTimeMs);
-        //To clear the hiddenCanvas
-        hiddenCanvasElementCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
     }
     canvasCtx.save();
     
@@ -244,9 +231,6 @@ async function predictWebcam() {
     canvasCtx.restore();
     if (streaming) {
         window.requestAnimationFrame(predictWebcamUnprocessed);
-    }
-    if (!streaming){
-        fgmask.delete(); fgbg.delete();
     }
 }
 
@@ -268,8 +252,6 @@ async function predictWebcamUnprocessed() {
         processVideo(canvasElementUnprocessed, 0);
         results_unprocessed = handLandmarker.detectForVideo(canvasElementUnprocessed, startTimeMs);
         //console.log(results_unprocessed)
-        //To clear the hiddenCanvas
-        hiddenCanvasElementCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
     }
     canvasCtxUnprocessed.save();
     
@@ -286,9 +268,6 @@ async function predictWebcamUnprocessed() {
     canvasCtxUnprocessed.restore();
     if (streaming) {
         window.requestAnimationFrame(predictWebcam);
-    }
-    if (!streaming){
-        fgmask.delete(); fgbg.delete();
     }
 }
 </script> 
