@@ -23,9 +23,8 @@
             <canvas id="canvasOutput" width=320 height=240></canvas>
         </td>
         <td>
-            <canvas id="unprocessedOutput" width=320 height=240></canvas>    
+            <canvas id="hiddenCanvas" width=320 height=240></canvas>    
         </td>
-        <td><canvas id="hiddenCanvas" width=0 height=0></canvas></td>
         <td><canvas id="maskCanvas" width=0 height=0></canvas></td>
     </tr>
     <tr>
@@ -34,9 +33,6 @@
         </td>
         <td>
             <div class="caption">Tracking with Skin Conversion</div>
-        </td>
-        <td>
-            <div class="caption">Tracking without Skin Conversion</div>
         </td>
         <td></td>
         <td></td>
@@ -63,8 +59,6 @@ const hiddenCanvasElement = document.getElementById("hiddenCanvas");
 const canvasCtx = canvasElement.getContext("2d");
 const hiddenCanvasElementCtx = hiddenCanvasElement.getContext("2d");
 
-const canvasElementUnprocessed = document.getElementById("unprocessedOutput");
-const canvasCtxUnprocessed = canvasElementUnprocessed.getContext("2d");
 
 var fgbg
 var fgmask
@@ -101,15 +95,13 @@ utils.loadOpenCv(() => {
     startAndStop.removeAttribute('disabled');
 });
 
-import { HandLandmarker, FilesetResolver, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3";
+import { HandLandmarker, FilesetResolver, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.2";
   
-function processVideo(canvasElement, alt) {
+function processVideo(canvasElement) {
     let video = document.getElementById('videoInput');
     video.removeAttribute("style");
     let canvasOut = document.getElementById('canvasOutput');
     canvasOut.removeAttribute("style");
-    let canvasOutUnprocessed = document.getElementById('unprocessedOutput');
-    canvasOutUnprocessed.removeAttribute("style");
     let src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
     let dst = new cv.Mat(video.height, video.width, cv.CV_8UC3);
     let mask = new cv.Mat(video.height, video.width, cv.CV_8UC4);
@@ -123,14 +115,7 @@ function processVideo(canvasElement, alt) {
     cv.cvtColor(src, dst, cv.COLOR_BGR2HSV);
     cv.inRange(dst, low, high, mask);
     cv.imshow('maskCanvas', maskAnd);    
-    if (alt == 0){
-        cv.imshow('unprocessedOutput', src);
-    }
-    
-    if (alt == 1){
-        cv.imshow('canvasOutput', src);
-    }
-
+    cv.imshow('canvasOutput', src);
     manipulateFrame(src, mask);
     cv.imshow('hiddenCanvas', src)
     // for background subtraction
@@ -199,8 +184,8 @@ const createHandLandmarker = async () => {
         runningMode: runningMode,
         numHands: 2,
         // change confidence levels
-        minHandDetectionConfidence: 0.8,
-        minHandPresenceConfidence: 0.8,
+        minHandDetectionConfidence: 0.7,
+        minHandPresenceConfidence: 0.7,
         minTrackingConfidence: 0.4
     });
 };
@@ -228,8 +213,11 @@ async function predictWebcam() {
     let startTimeMs = performance.now();
     if (lastVideoTime !== video.currentTime) {
         lastVideoTime = video.currentTime;
-        processVideo(canvasElement, 1);
-        results = handLandmarker.detectForVideo(canvasElement, startTimeMs);
+        processVideo(hiddenCanvasElement);
+        results = handLandmarker.detectForVideo(hiddenCanvasElement, startTimeMs);
+        startTimeMs = performance.now();
+        results_unprocessed = handLandmarker.detectForVideo(canvasElement, startTimeMs);
+        //processVideo(hiddenCanvasElement, 0);
         //To clear the hiddenCanvas
         hiddenCanvasElementCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
     }
@@ -245,48 +233,7 @@ async function predictWebcam() {
         }
     }
     canvasCtx.restore();
-    if (streaming) {
-        window.requestAnimationFrame(predictWebcamUnprocessed);
-    }
-    if (!streaming){
-        fgmask.delete(); fgbg.delete();
-    }
-}
 
-async function predictWebcamUnprocessed() {
-    canvasElementUnprocessed.style.width = video.videoWidth;
-    canvasElementUnprocessed.style.height = video.videoHeight;
-    canvasElementUnprocessed.width = video.videoWidth;
-    canvasElementUnprocessed.height = video.videoHeight;
-
-    //const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
-
-    //video.srcObject = mediaStream;
-
-
-    // Now let's start detecting the stream.
-    let startTimeMs = performance.now();
-    if (lastVideoTime !== video.currentTime) {
-        lastVideoTime = video.currentTime;
-        processVideo(canvasElementUnprocessed, 0);
-        results_unprocessed = handLandmarker.detectForVideo(canvasElementUnprocessed, startTimeMs);
-        //console.log(results_unprocessed)
-        //To clear the hiddenCanvas
-        hiddenCanvasElementCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-    }
-    canvasCtxUnprocessed.save();
-    
-    if (results_unprocessed && results_unprocessed.landmarks) {
-        for (const landmarks of results_unprocessed.landmarks) {
-            drawConnectors(canvasCtxUnprocessed, landmarks, HAND_CONNECTIONS, {
-                color: "#00FF00",
-                lineWidth: 1
-            });
-            drawLandmarks(canvasCtxUnprocessed, landmarks, { color: "#FF0000", lineWidth: 1, radius: 2 });
-            console.log("drawn");
-        }
-    }
-    canvasCtxUnprocessed.restore();
     if (streaming) {
         window.requestAnimationFrame(predictWebcam);
     }
@@ -294,6 +241,8 @@ async function predictWebcamUnprocessed() {
         fgmask.delete(); fgbg.delete();
     }
 }
+
+
 </script> 
 </body>
 </html>
