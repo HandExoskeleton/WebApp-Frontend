@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Unprocessed Video Example</title>
+</head>
+<body>
+<h2>Real Time MediaPipe Hand Tracking</h2>
+<p>
+    Click the <b>Start/Stop</b> button to start or stop the camera capture.<br>
+    MediaPipe Hands is run on the raw original video feed, without any prior processing. 
+    The version of the MediaPipe Hand tracker used is taken from https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.2. 
+</p>
+<div class="control"><button id="startAndStop" disabled>Start</button></div>
+<p class="err" id="errorMessage"></p>
+<div>
+    <table cellpadding="0" cellspacing="0" width="0" border="0">
+    <tr>
+        <td>
+            <video id="videoInput" width=320 height=240></video>
+        </td>
+        <td>
+            <canvas id="canvasOutput" width=320 height=240></canvas>
+        </td>
+        <!--<td>
+            <canvas id="hiddenCanvas" width=320 height=240></canvas>    
+        </td>-->
+        <td><canvas id="maskCanvas" width=0 height=0></canvas></td>
+    </tr>
+    <tr>
+        <td>
+            <div class="caption">Original Video Feed</div>
+        </td>
+        <td>
+            <div class="caption">MediaPipe Hands</div>
+        </td>
+        <td></td>
+        <td></td>
+    </tr>
+    </table>
+</div>
+<script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+<script src="https://webrtc.github.io/adapter/adapter-5.0.4.js" type="text/javascript"></script>
+<script src="utils.js" type="text/javascript"></script>
+<script id="codeSnippet" type="text/code-snippet">
+    
+</script>
+<script type="module">
+let utils = new Utils('errorMessage');
+
+let streaming = false;
+let startAndStop = document.getElementById('startAndStop');
+
+const video = document.getElementById("videoInput");
+const canvasElement = document.getElementById("canvasOutput");
+//const hiddenCanvasElement = document.getElementById("hiddenCanvas");
+const canvasCtx = canvasElement.getContext("2d");
+//const hiddenCanvasElementCtx = hiddenCanvasElement.getContext("2d");
+
+//var fgbg
+//var fgmask
+
+startAndStop.addEventListener('click', () => {
+    //fgbg = new cv.BackgroundSubtractorMOG2(500,16, true);
+    //fgmask = new cv.Mat(video.height, video.width, cv.CV_8UC1);
+    if (!streaming) {
+        utils.clearError();
+        utils.startCamera('qvga', onVideoStarted, 'videoInput');
+    } else {
+        utils.stopCamera();
+        onVideoStopped();
+    }
+});
+
+function onVideoStarted() {
+    streaming = true;
+    startAndStop.innerText = 'Stop';
+    video.width = video.videoWidth;
+    video.height = video.videoHeight;
+    predictWebcam()
+    //canvasElement.addEventListener("loadeddata", predictWebcam);
+}
+
+function onVideoStopped() {
+    streaming = false;
+    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    canvasCtxUnprocessed.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    startAndStop.innerText = 'Start';
+}
+
+utils.loadOpenCv(() => {
+    startAndStop.removeAttribute('disabled');
+});
+
+import { HandLandmarker, FilesetResolver, DrawingUtils } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.2";
+  
+let handLandmarker = undefined;
+let runningMode = "VIDEO";
+let enableWebcamButton;
+let webcamRunning = false;
+const videoHeight = "360px";
+const videoWidth = "480px";
+
+const createHandLandmarker = async () => {
+    const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm");
+    handLandmarker = await HandLandmarker.createFromOptions(vision, {
+        baseOptions: {
+            modelAssetPath: `hand_landmarker.task`,
+            delegate: "GPU"
+        },
+        runningMode: runningMode,
+        numHands: 2,
+        // change confidence levels
+        minHandDetectionConfidence: 0.7,
+        minHandPresenceConfidence: 0.7,
+        minTrackingConfidence: 0.4
+    });
+};
+createHandLandmarker();
+
+async function predictWebcam() {
+    canvasElement.style.width = video.videoWidth;
+    canvasElement.style.height = video.videoHeight;
+    canvasElement.width = video.videoWidth;
+    canvasElement.height = video.videoHeight;
+
+    //const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
+
+    //video.srcObject = mediaStream;
+
+
+    // Now let's start detecting the stream.
+    let startTimeMs = performance.now();
+    if (lastVideoTime !== video.currentTime) {
+        lastVideoTime = video.currentTime;
+       // processVideo(hiddenCanvasElement);
+       // results = handLandmarker.detectForVideo(hiddenCanvasElement, startTimeMs);
+        startTimeMs = performance.now();
+        results_unprocessed = handLandmarker.detectForVideo(canvasElement, startTimeMs);
+        //processVideo(hiddenCanvasElement, 0);
+        //To clear the hiddenCanvas
+       // hiddenCanvasElementCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    }
+    canvasCtx.save();
+    
+    if (results && results.landmarks) {
+        for (const landmarks of results.landmarks) {
+            drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {
+                color: "#00FF00",
+                lineWidth: 1
+            });
+            drawLandmarks(canvasCtx, landmarks, { color: "#FF0000", lineWidth: 1, radius: 2 });
+        }
+    }
+    canvasCtx.restore();
+
+  /*  if (streaming) {
+        window.requestAnimationFrame(predictWebcam);
+    }
+    if (!streaming){
+        fgmask.delete(); fgbg.delete();
+    } */
+}
+
+
+</script> 
+</body>
+</html>
