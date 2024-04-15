@@ -55,12 +55,36 @@ let startAndStop = document.getElementById('startAndStop');
 
 const video = document.getElementById("videoInput");
 const canvasElement = document.getElementById("canvasOutput");
-//const hiddenCanvasElement = document.getElementById("hiddenCanvas");
 const canvasCtx = canvasElement.getContext("2d");
-//const hiddenCanvasElementCtx = hiddenCanvasElement.getContext("2d");
 
-//var fgbg
-//var fgmask
+var lastVideoTime = -1;
+
+
+function processVideo(canvasElement) {
+    let video = document.getElementById('videoInput');
+    video.removeAttribute("style");
+    let canvasOut = document.getElementById('canvasOutput');
+    canvasOut.removeAttribute("style");
+    let src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
+    let dst = new cv.Mat(video.height, video.width, cv.CV_8UC3);
+    let mask = new cv.Mat(video.height, video.width, cv.CV_8UC4);
+    let maskAnd = new cv.Mat(video.height, video.width, cv.CV_8UC4);
+    let cap = new cv.VideoCapture(video);
+    let low = new cv.Mat(dst.rows, dst.cols, dst.type(), [0, 0, 0, 0]);
+    let high = new cv.Mat(dst.rows, dst.cols, dst.type(), [180, 255, 75, 255]);
+    let blurred = new cv.Mat(video.height, video.width, cv.CV_8UC4);
+    cap.read(src);
+    cv.cvtColor(src, dst, cv.COLOR_BGR2HSV);
+    cv.inRange(dst, low, high, mask);   
+    cv.imshow('canvasOutput', src);
+    src.delete();
+    dst.delete();
+    mask.delete();
+    low.delete();
+    high.delete();
+    maskAnd.delete();
+    blurred.delete();
+}
 
 startAndStop.addEventListener('click', () => {
     //fgbg = new cv.BackgroundSubtractorMOG2(500,16, true);
@@ -80,13 +104,11 @@ function onVideoStarted() {
     video.width = video.videoWidth;
     video.height = video.videoHeight;
     predictWebcam()
-    //canvasElement.addEventListener("loadeddata", predictWebcam);
 }
 
 function onVideoStopped() {
     streaming = false;
     canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-    canvasCtxUnprocessed.clearRect(0, 0, canvasElement.width, canvasElement.height);
     startAndStop.innerText = 'Start';
 }
 
@@ -102,6 +124,7 @@ let enableWebcamButton;
 let webcamRunning = false;
 const videoHeight = "360px";
 const videoWidth = "480px";
+let results = undefined;
 
 const createHandLandmarker = async () => {
     const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm");
@@ -126,22 +149,14 @@ async function predictWebcam() {
     canvasElement.width = video.videoWidth;
     canvasElement.height = video.videoHeight;
 
-    //const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
-
-    //video.srcObject = mediaStream;
-
-
     // Now let's start detecting the stream.
     let startTimeMs = performance.now();
     if (lastVideoTime !== video.currentTime) {
         lastVideoTime = video.currentTime;
-       // processVideo(hiddenCanvasElement);
-       // results = handLandmarker.detectForVideo(hiddenCanvasElement, startTimeMs);
         startTimeMs = performance.now();
-        results_unprocessed = handLandmarker.detectForVideo(canvasElement, startTimeMs);
-        //processVideo(hiddenCanvasElement, 0);
-        //To clear the hiddenCanvas
-       // hiddenCanvasElementCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+        processVideo(canvasElement);
+        results = handLandmarker.detectForVideo(canvasElement, startTimeMs);
+        console.log(results);
     }
     canvasCtx.save();
     
@@ -156,12 +171,9 @@ async function predictWebcam() {
     }
     canvasCtx.restore();
 
-  /*  if (streaming) {
+    if (streaming) {
         window.requestAnimationFrame(predictWebcam);
     }
-    if (!streaming){
-        fgmask.delete(); fgbg.delete();
-    } */
 }
 
 
