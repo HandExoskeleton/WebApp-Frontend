@@ -172,7 +172,7 @@ async function predictWebcam() {
     canvasCtx.restore();
 
     if (streaming) {
-        window.requestAnimationFrame(predictWebcam);
+        window.requestAnimationFrame(setTimeout(predictWebcam, 30));
     }
 }
 
